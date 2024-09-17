@@ -1,0 +1,97 @@
+const express = require('express');
+const mysql = require('mysql2');
+const app = express();
+const port = 3000;
+
+// Middleware to parse JSON bodies
+app.use(express.json());
+
+// Create a MySQL connection
+const connection = mysql.createConnection({
+  host: 'localhost',
+  user: 'root',        // Replace with your MySQL username
+  password: 'password', // Replace with your MySQL password
+  database: 'testdb'  // Replace with your MySQL database name
+});
+
+// Connect to MySQL
+connection.connect((err) => {
+  if (err) {
+    console.error('Error connecting to MySQL:', err);
+    return;
+  }
+  console.log('Connected to MySQL');
+});
+
+// Create a table if it doesn't exist
+const createTableQuery = `
+  CREATE TABLE IF NOT EXISTS users (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(100),
+    email VARCHAR(100)
+  )
+`;
+
+connection.query(createTableQuery, (err) => {
+  if (err) {
+    console.error('Error creating table:', err);
+    return;
+  }
+  console.log('Table created or already exists');
+});
+
+// Route to get all users
+app.get('/users', (req, res) => {
+  connection.query('SELECT * FROM users', (err, results) => {
+    if (err) {
+      res.status(500).json({ error: 'Error fetching users' });
+      return;
+    }
+    res.json(results);
+  });
+});
+
+// Route to create a new user
+app.post('/users', (req, res) => {
+  const { name, email } = req.body;
+  const query = 'INSERT INTO users (name, email) VALUES (?, ?)';
+  connection.query(query, [name, email], (err, results) => {
+    if (err) {
+      res.status(500).json({ error: 'Error adding user' });
+      return;
+    }
+    res.status(201).json({ id: results.insertId, name, email });
+  });
+});
+
+// Route to update a user
+app.put('/users/:id', (req, res) => {
+  const { id } = req.params;
+  const { name, email } = req.body;
+  const query = 'UPDATE users SET name = ?, email = ? WHERE id = ?';
+  connection.query(query, [name, email, id], (err) => {
+    if (err) {
+      res.status(500).json({ error: 'Error updating user' });
+      return;
+    }
+    res.json({ id, name, email });
+  });
+});
+
+// Route to delete a user
+app.delete('/users/:id', (req, res) => {
+  const { id } = req.params;
+  const query = 'DELETE FROM users WHERE id = ?';
+  connection.query(query, [id], (err) => {
+    if (err) {
+      res.status(500).json({ error: 'Error deleting user' });
+      return;
+    }
+    res.status(204).send();
+  });
+});
+
+// Start the server
+app.listen(port, () => {
+  console.log(`Server is running on http://localhost:${port}`);
+});
